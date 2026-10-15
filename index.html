@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vundamendi Kalkulaator</title>
+<style>
+:root{--bg:#0f1216;--card:#171c22;--line:#252c35;--txt:#e6edf3;--dim:#8b98a5;--acc:#2f81f7;--ok:#3fb950;--warn:#d29922}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--txt);padding:12px}
+h1{font-size:19px;margin:4px 0 2px}h2{font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:22px 0 8px;font-weight:600}
+.sub{color:var(--dim);font-size:12.5px;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px}
+label.row{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+label.row:last-child{border-bottom:0}
+label.row input[type=checkbox]{width:20px;height:20px;accent-color:var(--acc);flex:0 0 auto}
+.nm{flex:1;font-size:14px}
+.nm small{display:block;color:var(--dim);font-size:11.5px;line-height:1.3}
+input[type=number],select{background:#0b0e12;border:1px solid var(--line);color:var(--txt);border-radius:7px;padding:8px 10px;width:100%;font-size:15px;font-variant-numeric:tabular-nums}
+input[type=number]{text-align:right}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.f{margin-bottom:9px}.f span{display:block;font-size:11.5px;color:var(--dim);margin-bottom:3px}
+table{width:100%;border-collapse:collapse;font-size:13.5px;font-variant-numeric:tabular-nums}
+td,th{padding:7px 4px;border-bottom:1px solid var(--line);text-align:right}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--dim);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+.tot{font-size:22px;font-weight:700;color:var(--ok);text-align:right}
+.tot.per{font-size:13px;color:var(--dim);font-weight:400}
+.hint{font-size:11.5px;color:var(--warn);margin-top:6px;line-height:1.4}
+button{background:var(--acc);color:#fff;border:0;border-radius:9px;padding:13px 18px;font-size:15px;font-weight:600;width:100%;margin-top:12px;cursor:pointer}
+button.sec{background:#21262d;color:var(--txt)}
+.off{opacity:.45}
+@media print{body{background:#fff;color:#000}.card{border-color:#ccc}button{display:none}h2{color:#333}input{border:0}}
+</style>
+</head>
+<body>
+<h1>Vundamendi Kalkulaator</h1>
+<div class="sub">Plaatvundament · sisestad mõõdud ja märgid tööd · hind arvutatakse</div>
+
+<h2>1. Objekt ja mõõdud</h2>
+<div class="card">
+  <div class="f"><span>Objekti nimi / hanke nr</span><input id="projekt" value="Lohkva eramaja plaatvundament"></div>
+  <div class="g2">
+    <div class="f"><span>Plaadi pind (m²)</span><input type="number" id="A" value="200" step="1"></div>
+    <div class="f"><span>Perimeeter (m)</span><input type="number" id="P" value="63" step="0.5"></div>
+  </div>
+  <div class="g2">
+    <div class="f"><span>Taldmikud kokku (m)</span><input type="number" id="L" value="85" step="1"></div>
+    <div class="f"><span>Terrass (m²)</span><input type="number" id="AT" value="51" step="1"></div>
+  </div>
+  <div class="hint" id="dimhint">Plaat 300 mm EPS · taldmik 500 mm · betoon 125 mm · ø10 #150/150 + ø12 puurid</div>
+</div>
+
+<h2>2. Materjalid (ühikuhinnad muudetavad)</h2>
+<div class="card"><table id="mat"></table></div>
+
+<h2>3. Tööd ja teenused</h2>
+<div class="card" id="tood"></div>
+
+<h2>4. Tööjõud ja kasum</h2>
+<div class="card">
+  <div class="g2">
+    <div class="f"><span>Tööjõud (€/m²) — jäta 0 kui tööd on all hinnastatud</span><input type="number" id="too_m2" value="0" step="1"></div>
+    <div class="f"><span>või oma tunnihind (€/h)</span><input type="number" id="too_h" value="0" step="1"></div>
+  </div>
+  <div class="g2">
+    <div class="f"><span>Hinnanguline tunde</span><input type="number" id="tunnid" value="0" step="5"></div>
+    <div class="f"><span>Kasum (%)</span><input type="number" id="kasum" value="15" step="1"></div>
+  </div>
+  <div class="f"><span>KM (%)</span><input type="number" id="km" value="24" step="1"></div>
+</div>
+
+<h2>5. Tulemus</h2>
+<div class="card"><table id="out"></table>
+  <div style="margin-top:12px" class="tot" id="kokku">0 €</div>
+  <div class="tot per" id="per">0 €/m²</div>
+</div>
+
+<button onclick="window.print()">🖨 Prindi pakkumine</button>
+<button class="sec" onclick="reset()">Taasta vaikehinnad</button>
+
+<script>
+/* ============ MATERJALIDE KOGUSEVALEMID (projekti spetsifikatsioonist) ============
+   plaat: 125 mm betoon, 300 mm EPS 200F, ø10 #150/150
+   taldmik: 500 mm lai, 250 mm paks, 3+2×ø12, rangid ø12 @240
+   perimeeter: 100 mm EPS 120 hor., 150 mm vert., 600 mm kõrgus
+   ============================================================================ */
+const V={betoon_plaat:0.125,betoon_tald:0.25,tald_laius:0.5,eps_plaat:0.30,eps_tald:0.10,
+         eps_h:0.10,eps_v:0.15,perim_k:0.60,perim_l:1.0,killustik:0.30,kyte_samm:0.15,
+         kg10:0.617,kg12:0.888,rang:0.24,yletus:1.07};
+
+function kogused(){
+  const A=+A_.value,P=+P_.value,L=+L_.value,AT=+AT_.value;
+  return {
+    betoon_m3: (A*V.betoon_plaat + L*V.tald_laius*V.betoon_tald + AT*0.10)*V.yletus,
+    armatuur_t:((A/0.15*2*V.kg10) + (L*5 + (L/V.rang)*2*(V.tald_laius+V.betoon_tald))*V.kg12)/1000*V.yletus,
+    eps200_m3: (A*V.eps_plaat + L*V.tald_laius*V.eps_tald)*V.yletus,
+    eps120_m3: (P*V.perim_l*V.eps_h + P*V.perim_k*V.eps_v)*V.yletus,
+    killustik_m3:(A+AT)*V.killustik*V.yletus,
+    kile_m2:   A*1.2*V.yletus,
+    toru_m:    A/V.kyte_samm*V.yletus
+  };
+}
+/* nimi, koguse-võti, ühik, vaikehind €, allikas */
+const MATERJALID=[
+ ["Betoon C30/37","betoon_m3","m³",140,"betoonimeister.ee 146 · rakverebetoon.ee 136"],
+ ["Armatuur ø10 + ø12","armatuur_t","t",950,"Espak ø12 võrk 85,70/tk · ehomer.ee"],
+ ["EPS 200F (plaat + taldmik)","eps200_m3","m³",68,"soojustusplaat.com EPS120=54 → EPS200F"],
+ ["EPS 120 (perimeeter)","eps120_m3","m³",54,"soojustusplaat.com EPS 120"],
+ ["Liiv-killustik","killustik_m3","m³",15,"täitematerjal, tihendatud"],
+ ["Põrandaküttetoru","toru_m","m",1.50,"PEX küttetoru"],
+ ["Ehituskile","kile_m2","m²",1.20,"ehituskile 0,2 mm"]
+];
+/* id, nimi, kirjeldus, ühik, vaikehind, tüüp(kogus-arvutus või fikseeritud), vaikimisi sees */
+const TOOD=[
+ ["väljkaeve","Väljkaeve + pinnase äravedu","Ekskavaator, mullatööd, äravedu","m³",18,"kaeve",true],
+ ["kevadliiv","Kevadised liivad / täiteliiv","Täiteliiv platsi tasanduseks","m³",12,"taide",true],
+ ["ara_vedu","Üleliigse pinnase äravedu","Autotransport + vastuvõtt","m³",14,"ara",true],
+ ["killustik_t","Killustiku laotus + tihendamine","Aluskiht 300 mm, vibroplaat","m²",8,"A",true],
+ ["drenaaz","Drenaaz","Perimeetri drenaažitoru + kaevud","m",22,"P",false],
+ ["sadevesi","Sadevee torud","Katuse sadevesi vundamendist välja","m",28,"P",false],
+ ["kanal","Kanalisatsioon","Sisestus + püstakud enne valu","kompl",850,"fix",false],
+ ["vesi","Vesi (sisestus + jaotus)","Veetorud, läbiviigud, hüdroisolatsioon","kompl",750,"fix",false],
+ ["elekter","Elekter + maandus","Kaabel, maandusvõrk, läbiviigud","kompl",1200,"fix",false],
+ ["kute","Küttesüsteem","Kollektorid, magistraalid, jaotus","kompl",2400,"fix",false],
+ ["poorandakuute","Põrandakütte paigaldus","Torude kinnitamine, testimine, rõhuproov","m²",11,"A",true],
+ ["soojustus","Soojustuse paigaldus","EPS paigaldus + sokkel","m²",9,"A",true],
+ ["armeerimine","Armeerimine","Võrk + puurid + rangid","m²",13,"A",true],
+ ["valu","Betoonivalu + silumine","Pump, valu, lihvimine","m³",65,"betoon_m3",true],
+ ["sokkel","Sokli viimistlus","Krohv või sokliplaat","m",34,"P",true],
+ ["korrastus","Objekti korrastus","Jääkide äravedu, puhastus","kompl",450,"fix",true]
+];
+
+const q=s=>document.querySelector(s);
+const A_=q("#A"),P_=q("#P"),L_=q("#L"),AT_=q("#AT");
+const hinnad={}; MATERJALID.forEach(m=>hinnad[m[1]]=m[3]);
+const toohinnad={}; TOOD.forEach(t=>toohinnad[t[0]]=t[4]);
+const sees={}; TOOD.forEach(t=>sees[t[0]]=(t[6]===true));
+
+function arvuta(){
+  const k=kogused(), A=+A_.value;
+  let mat=0,matHTML=`<tr><th>Materjal</th><th style="text-align:right">Kogus</th><th style="text-align:right">Ühik</th><th style="text-align:right">Hind</th><th style="text-align:right">Kokku</th></tr>`;
+  MATERJALID.forEach((m,i)=>{const kog=k[m[1]]||0,hind=hinnad[m[1]],sum=kog*hind;mat+=sum;
+    matHTML+=`<tr><td>${m[0]}<br><small style="color:#8b98a5">${m[4]}</small></td>
+      <td>${kog.toFixed(1)}</td><td>${m[2]}</td>
+      <td><input type="number" style="width:78px;padding:4px" value="${hind}" onchange="hinnad['${m[1]}']=+this.value;arvuta()"></td>
+      <td>${sum.toFixed(0)} €</td></tr>`;});
+  q("#mat").innerHTML=matHTML;
+
+  let too=0,tooHTML="";
+  const KOGUS={kaeve:A*0.7, taide:A*0.3, ara:A*0.28, A:A, P:+P_.value};   // kaeve 0,7 m sügavus, täide 0,3 m, äravedu 40%
+  TOOD.forEach(t=>{const [id,nimi,kirj,uhik,vh,tyyp]=t;
+    let kog = tyyp==="fix" ? 1
+            : KOGUS[tyyp]!==undefined ? KOGUS[tyyp]
+            : tyyp==="betoon_m3" ? k.betoon_m3
+            : k[tyyp]||1;
+    const sum=sees[id]?kog*toohinnad[id]:0; too+=sum;
+    tooHTML+=`<label class="row ${sees[id]?"":"off"}">
+      <input type="checkbox" ${sees[id]?"checked":""} onchange="sees['${id}']=this.checked;arvuta()">
+      <span class="nm">${nimi}<small>${kirj} · ${kog.toFixed(kog<10?1:0)} ${uhik}</small></span>
+      <input type="number" style="width:74px;padding:5px;flex:0 0 auto" value="${toohinnad[id]}"
+        onchange="toohinnad['${id}']=+this.value;arvuta()" onclick="event.stopPropagation()">
+      <b style="width:74px;text-align:right;flex:0 0 auto">${sum.toFixed(0)}€</b></label>`;});
+  q("#tood").innerHTML=tooHTML;
+
+  // tööjõud
+  const tm2=+q("#too_m2").value, th=+q("#too_h").value, tn=+q("#tunnid").value;
+  const toojou = (th>0&&tn>0)? th*tn : tm2*A;
+  const baas = mat+too+toojou;
+  const kasum=baas*(+q("#kasum").value/100);
+  const kmv=(+q("#km").value/100);
+  const vahe=(baas+kasum)*kmv;
+  const kokku=baas+kasum+vahe;
+
+  q("#out").innerHTML=`<tr><td>Materjal</td><td>${mat.toFixed(0)} €</td></tr>
+    <tr><td>Tööd ja teenused</td><td>${too.toFixed(0)} €</td></tr>
+    <tr><td>Tööjõud</td><td>${toojou.toFixed(0)} €</td></tr>
+    <tr><td><b>Omahind</b></td><td><b>${baas.toFixed(0)} €</b></td></tr>
+    <tr><td>Kasum (${q("#kasum").value}%)</td><td>${kasum.toFixed(0)} €</td></tr>
+    <tr><td>KM (${q("#km").value}%)</td><td>${vahe.toFixed(0)} €</td></tr>`;
+  q("#kokku").textContent=kokku.toLocaleString("et-EE",{maximumFractionDigits:0})+" €";
+  q("#per").textContent=(kokku/A).toFixed(0)+" €/m² (KM-ga) · omahind "+(baas/A).toFixed(0)+" €/m²";
+  q("#dimhint").innerHTML=`Vundament ${A} m² · betoon ${k.betoon_m3.toFixed(1)} m³ · armatuur ${k.armatuur_t.toFixed(1)} t · EPS ${(k.eps200_m3+k.eps120_m3).toFixed(1)} m³`;
+}
+function reset(){MATERJALID.forEach(m=>hinnad[m[1]]=m[3]);TOOD.forEach(t=>{toohinnad[t[0]]=t[4];sees[t[0]]=(t[6]===true)});arvuta()}
+[...document.querySelectorAll("input")].forEach(i=>i.addEventListener("input",arvuta));
+arvuta();
+</script>
+</body>
+</html>
